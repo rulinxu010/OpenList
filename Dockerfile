@@ -34,3 +34,17 @@ ENV UMASK=022 RUN_ARIA2=${INSTALL_ARIA2}
 VOLUME /opt/openlist/data/
 EXPOSE 5244 5245
 CMD [ "/entrypoint.sh" ]
+
+FROM openlistteam/openlist:v4.1.0
+
+# 切换到 root 用户来修改权限
+USER root
+
+# 创建数据目录并给予最高权限 (777)，确保任何用户都能读写
+RUN mkdir -p /opt/openlist/data && chmod -R 777 /opt/openlist/data
+
+# 暴露端口
+EXPOSE 5244
+
+# 启动命令，显式指定数据目录
+CMD ["/opt/openlist/openlist", "server", "--data", "/opt/openlist/data"]
