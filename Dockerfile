@@ -1,50 +1,17 @@
-### Default image is base. You can add other support by modifying BASE_IMAGE_TAG. The following parameters are supported: base (default), aria2, ffmpeg, aio
-ARG BASE_IMAGE_TAG=base
+FROM openlistteam/openlist:latest
 
-FROM alpine:edge AS builder
-LABEL stage=go-builder
-WORKDIR /app/
-RUN apk add --no-cache bash curl jq gcc git go musl-dev
-COPY go.mod go.sum ./
-RUN go mod download
-COPY ./ ./
-RUN bash build.sh release docker
-
-FROM openlistteam/openlist-base-image:${BASE_IMAGE_TAG}
-LABEL MAINTAINER="OpenList"
-ARG INSTALL_FFMPEG=false
-ARG INSTALL_ARIA2=false
-ARG USER=openlist
-ARG UID=1001
-ARG GID=1001
-
-WORKDIR /opt/openlist/
-
-RUN addgroup -g ${GID} ${USER} && \
-    adduser -D -u ${UID} -G ${USER} ${USER} && \
-    mkdir -p /opt/openlist/data
-
-COPY --from=builder --chmod=755 --chown=${UID}:${GID} /app/bin/openlist ./
-COPY --chmod=755 --chown=${UID}:${GID} entrypoint.sh /entrypoint.sh
-
-USER ${USER}
-RUN /entrypoint.sh version
-
-ENV UMASK=022 RUN_ARIA2=${INSTALL_ARIA2}
-VOLUME /opt/openlist/data/
-EXPOSE 5244 5245
-CMD [ "/entrypoint.sh" ]
-
-FROM openlistteam/openlist:v4.1.0
-
-# 切换到 root 用户来修改权限
+# 切换到 root 用户强制操作
 USER root
 
-# 创建数据目录并给予最高权限 (777)，确保任何用户都能读写
-RUN mkdir -p /opt/openlist/data && chmod -R 777 /opt/openlist/data
+# 创建一个 Render 无法拒绝的临时数据目录
+RUN mkdir -p /var/tmp/openlist && chmod -R 777 /var/tmp/openlist
+
+# 设置工作目录
+WORKDIR /var/tmp/openlist
 
 # 暴露端口
 EXPOSE 5244
 
-# 启动命令，显式指定数据目录
-CMD ["/opt/openlist/openlist", "server", "--data", "/opt/openlist/data"]
+# 【核心步骤】启动时强制指定数据路径为 /var/tmp/openlist
+# 这样它就不会去碰那个报错的 /opt/openlist/data 了
+CMD ["/opt/openlist/openlist", "server", "--data", "/var/tmp/openlist"]
