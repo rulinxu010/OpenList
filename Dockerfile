@@ -1,17 +1,21 @@
 FROM openlistteam/openlist:latest
 
-# 切换到 root 用户强制操作
 USER root
 
-# 创建一个 Render 无法拒绝的临时数据目录
-RUN mkdir -p /var/tmp/openlist && chmod -R 777 /var/tmp/openlist
+# 1. 彻底删除原有的 data 目录（如果存在）
+RUN rm -rf /opt/openlist/data
 
-# 设置工作目录
-WORKDIR /var/tmp/openlist
+# 2. 创建一个绝对有权限的临时目录
+RUN mkdir -p /tmp/data && chmod -R 777 /tmp/data
 
-# 暴露端口
+# 3. 核心：建立软链接！
+# 把程序想找的 /opt/openlist/data 指向我们有权限的 /tmp/data
+RUN ln -s /tmp/data /opt/openlist/data
+
+# 4. 设置环境变量
+ENV ALIST_DATA_DIR=/tmp/data
+
 EXPOSE 5244
 
-# 【核心步骤】启动时强制指定数据路径为 /var/tmp/openlist
-# 这样它就不会去碰那个报错的 /opt/openlist/data 了
-CMD ["/opt/openlist/openlist", "server", "--data", "/var/tmp/openlist"]
+# 5. 启动命令（多重保险）
+CMD ["/opt/openlist/openlist", "server", "--data", "/tmp/data"]
